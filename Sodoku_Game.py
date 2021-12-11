@@ -6,6 +6,9 @@ from tkinter import messagebox
 
 pygame.font.init()
 
+# import sys
+# sys.setrecursionlimit(10000)
+
 root = Tk() 
 
 # Testing board:
@@ -20,6 +23,10 @@ board = [
     [1,2,0,0,0,7,4,0,0],
     [0,4,9,2,0,6,0,0,7]
 ]
+
+# Colors:
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
 
 # Function to print a board:
 def print_board(bo):
@@ -94,10 +101,34 @@ def solve(board):   # Recursive function that calls itself
     return False    # If we looped trough all of the numbers and all not valid then return false
         
 
-# print_board(board)
-# print("\n")
-# solve(board)
-# print_board(board)
+def solve_board(win, board_grid, cur_time, strikes):
+
+    find = find_empty(board_grid.board)    # Get first available empty position
+    
+    if not find:    
+        return True     # We found a solution thus no empty positions left  (We are done!)
+    else:
+        row, col = find     # Get available row and column from find tuple
+        
+    for i in range(1, 10):  # loop through numbers 1 to 9
+        if valid(board_grid.board, i, (row, col)):
+            board_grid.board[row][col]  = i    # Add number to board if valid
+            board_grid.cubes[row][col].color = GREEN
+            board_grid.cubes[row][col].selected = True
+            board_grid.cubes[row][col].value = i
+            # pygame.time.delay(100)   # Adjust speed at which the algorithm is displayed
+            redraw_window(win, board_grid, cur_time, strikes)
+            pygame.display.update()
+
+            if solve_board(win, board_grid, cur_time, strikes):    # Recursively call solve function 
+                return True
+
+            board_grid.board[row][col] = 0     # Backtrack and set last value to 0 and try process again
+            board_grid.cubes[row][col].color = RED
+            board_grid.cubes[row][col].selected = True
+            board_grid.cubes[row][col].value = 0
+        
+    return False    # If we looped trough all of the numbers and all not valid then return false 
 
 
 class Grid: # Grid class to hold multiple cubes
@@ -120,7 +151,6 @@ class Grid: # Grid class to hold multiple cubes
         if self.cubes[row][col].value == 0: # If selected cube has value of 0
             self.cubes[row][col].set(val)   # Set final value
             self.update_model()     # Update model 
-
             if valid(self.model, val, (row,col)) and solve(self.model): # Check if valid
                 return True
             else:   # Else clear value and reset model
@@ -193,6 +223,7 @@ class Cube:     # The grid class holds multiple cubes
         self.width = width
         self.height = height
         self.selected = False   # Default value for selected state
+        self.color = RED    # Default color is red for frame
 
     def draw(self, win):
         fnt = pygame.font.SysFont("comicsans", 40)  # Import python font
@@ -209,7 +240,7 @@ class Cube:     # The grid class holds multiple cubes
             win.blit(text, (x + (gap/2 - text.get_width()/2), y + (gap/2 - text.get_height()/2)))   # Place text on window (block)
 
         if self.selected:
-            pygame.draw.rect(win, (255,0,0), (x,y, gap ,gap), 3)    #If selected then draw lock on the outside
+            pygame.draw.rect(win, self.color, (x,y, gap ,gap), 3)    #If selected then draw block on the outside  (RED outline)
 
     def set(self, val):     # For setting final value
         self.value = val
@@ -223,7 +254,7 @@ def redraw_window(win, board, time, strikes):   # Redraw window but with updated
     # Draw time
     fnt = pygame.font.SysFont("comicsans", 35)
     text = fnt.render("Time: " + format_time(time), 1, (0,0,0))     # Text for current time
-    win.blit(text, (540 - 175, 545))    # Place time text
+    win.blit(text, (540 - 185, 545))    # Place time text
     # Draw Strikes
     if strikes < 10:
         text = fnt.render("X " * strikes, 1, (255, 0, 0))   # Text for strike
@@ -247,14 +278,19 @@ def main():
     pygame.display.set_caption("Sudoku")
 
     board_grid = Grid(9, 9, 540, 540, board) # draw the board grid with 9 rows and columns with size 540x540 with the board as input
+    board_grid.update_model()   # Update model to aviod error when getting hints at start
+    # solve(board_grid.board)
+
     key = None
     run = True 
+    run_timer = 1
     start_time = time.time() # Time when game started
     strikes = 0 # Reset the strikes'
 
     while run:
 
-        cur_time = round(time.time() - start_time)  # Update timer
+        if run_timer == 1:
+            cur_time = round(time.time() - start_time)  # Update timer
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:   # If quit pressed then stop the game
@@ -285,7 +321,7 @@ def main():
                     key = None
                     
                 if event.key == pygame.K_RETURN:    # If enter key pressed then check if value entered is correct
-                    i, j = board_grid.selected   #Get the position selected
+                    i, j = board_grid.selected   # Get the position selected
                     if board_grid.cubes[i][j].temp != 0 and board_grid.cubes[i][j].temp != board_grid.cubes[i][j].value:     # If there is a temp value entered and that is has not already been entered correctly (Can't lose if already won)
                         if board_grid.place(board_grid.cubes[i][j].temp): # Check if the tmep value can be placed without error and placed perminantly
                             print("Success")    # Success if the value can be placed
@@ -302,6 +338,16 @@ def main():
                         if board_grid.is_finished():
                             print("Game over")
                             run = False
+
+                if event.key == pygame.K_SPACE:
+                    run_timer = 0
+                    print("Solving")
+                    solve_board(win, board_grid, cur_time, strikes)
+
+                if event.key == pygame.K_h:
+                    i, j = board_grid.selected
+                    # board_grid.cubes[i][j].value = board_grid.model[i][j]
+                    board_grid.place(board_grid.model[i][j])
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
