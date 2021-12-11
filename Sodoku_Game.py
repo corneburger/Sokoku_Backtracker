@@ -1,7 +1,12 @@
 # GUI.py
 import pygame
 import time
+from tkinter import *
+from tkinter import messagebox
+
 pygame.font.init()
+
+root = Tk() 
 
 # Testing board:
 board = [
@@ -95,39 +100,40 @@ def solve(board):   # Recursive function that calls itself
 # print_board(board)
 
 
-class Grid:
+class Grid: # Grid class to hold multiple cubes
 
-    def __init__(self, rows, cols, width, height):
+    def __init__(self, rows, cols, width, height, board):
+        self.board = board
         self.rows = rows
         self.cols = cols
-        self.cubes = [[Cube(self.board[i][j], i, j, width, height) for j in range(cols)] for i in range(rows)]
+        self.cubes = [[Cube(self.board[i][j], i, j, width, height) for j in range(cols)] for i in range(rows)]  # Place a cube at position i, j while looping through the rows and columns
         self.width = width
         self.height = height
         self.model = None
         self.selected = None
 
-    def update_model(self):
+    def update_model(self):     # Board in the background want to check if final values placed is solvable (Multiple solutions possible so check if final values inserted produce valid solution)
         self.model = [[self.cubes[i][j].value for j in range(self.cols)] for i in range(self.rows)]
 
-    def place(self, val):
+    def place(self, val):   # Try to place perminant value and make sure it is valid to place in selected place
         row, col = self.selected
-        if self.cubes[row][col].value == 0:
-            self.cubes[row][col].set(val)
-            self.update_model()
+        if self.cubes[row][col].value == 0: # If selected cube has value of 0
+            self.cubes[row][col].set(val)   # Set final value
+            self.update_model()     # Update model 
 
-            if valid(self.model, val, (row,col)) and solve(self.model):
+            if valid(self.model, val, (row,col)) and solve(self.model): # Check if valid
                 return True
-            else:
-                self.cubes[row][col].set(0)
+            else:   # Else clear value and reset model
+                self.cubes[row][col].set(0) 
                 self.cubes[row][col].set_temp(0)
                 self.update_model()
                 return False
 
-    def sketch(self, val):
+    def sketch(self, val):  # Set temp value for cube object (Pencil)
         row, col = self.selected
         self.cubes[row][col].set_temp(val)
 
-    def draw(self, win):
+    def draw(self, win):    # Draw grid lines and cubes
         # Draw Grid Lines
         gap = self.width / 9
         for i in range(self.rows+1):
@@ -143,7 +149,7 @@ class Grid:
             for j in range(self.cols):
                 self.cubes[i][j].draw(win)
 
-    def select(self, row, col):
+    def select(self, row, col):     # Select block to let cube update border
         # Reset all other
         for i in range(self.rows):
             for j in range(self.cols):
@@ -152,21 +158,18 @@ class Grid:
         self.cubes[row][col].selected = True
         self.selected = (row, col)
 
-    def clear(self):
+    def clear(self):    # Clear the block value when delete button cleared
         row, col = self.selected
         if self.cubes[row][col].value == 0:
             self.cubes[row][col].set_temp(0)
 
-    def click(self, pos):
-        """
-        :param: pos
-        :return: (row, col)
-        """
+    def click(self, pos):   # Return the position of the cubed clicked on
+
         if pos[0] < self.width and pos[1] < self.height:
             gap = self.width / 9
             x = pos[0] // gap
             y = pos[1] // gap
-            return (int(y),int(x))
+            return (int(y),int(x))  # Return row and colomn of selected cube
         else:
             return None
 
@@ -178,82 +181,87 @@ class Grid:
         return True
 
 
-class Cube:
+class Cube:     # The grid class holds multiple cubes
     rows = 9
     cols = 9
 
     def __init__(self, value, row, col, width ,height):
-        self.value = value
-        self.temp = 0
+        self.value = value  # Actaul value that is final and can't be changed
+        self.temp = 0   # Default temp value that gets "Penciled" in
         self.row = row
         self.col = col
         self.width = width
         self.height = height
-        self.selected = False
+        self.selected = False   # Default value for selected state
 
     def draw(self, win):
-        fnt = pygame.font.SysFont("comicsans", 40)
+        fnt = pygame.font.SysFont("comicsans", 40)  # Import python font
 
         gap = self.width / 9
         x = self.col * gap
         y = self.row * gap
 
-        if self.temp != 0 and self.value == 0:
-            text = fnt.render(str(self.temp), 1, (128,128,128))
-            win.blit(text, (x+5, y+5))
-        elif not(self.value == 0):
-            text = fnt.render(str(self.value), 1, (0, 0, 0))
-            win.blit(text, (x + (gap/2 - text.get_width()/2), y + (gap/2 - text.get_height()/2)))
+        if self.temp != 0 and self.value == 0:  # If temp value inserted and final value not been selected then place temp value
+            text = fnt.render(str(self.temp), 1, (128,128,128))     # Text for block with temp value 
+            win.blit(text, (x+5, y+5))  # Place text on window (block)
+        elif not(self.value == 0):  # If final values has not been placed then place final value
+            text = fnt.render(str(self.value), 1, (0, 0, 0))    # Text for block with final value
+            win.blit(text, (x + (gap/2 - text.get_width()/2), y + (gap/2 - text.get_height()/2)))   # Place text on window (block)
 
         if self.selected:
-            pygame.draw.rect(win, (255,0,0), (x,y, gap ,gap), 3)
+            pygame.draw.rect(win, (255,0,0), (x,y, gap ,gap), 3)    #If selected then draw lock on the outside
 
-    def set(self, val):
+    def set(self, val):     # For setting final value
         self.value = val
 
-    def set_temp(self, val):
+    def set_temp(self, val):    # For setting penciled value
         self.temp = val
 
 
-def redraw_window(win, board, time, strikes):
+def redraw_window(win, board, time, strikes):   # Redraw window but with updated time and strikes
     win.fill((255,255,255))
     # Draw time
-    fnt = pygame.font.SysFont("comicsans", 40)
-    text = fnt.render("Time: " + format_time(time), 1, (0,0,0))
-    win.blit(text, (540 - 160, 560))
+    fnt = pygame.font.SysFont("comicsans", 35)
+    text = fnt.render("Time: " + format_time(time), 1, (0,0,0))     # Text for current time
+    win.blit(text, (540 - 175, 545))    # Place time text
     # Draw Strikes
-    text = fnt.render("X " * strikes, 1, (255, 0, 0))
-    win.blit(text, (20, 560))
+    if strikes < 10:
+        text = fnt.render("X " * strikes, 1, (255, 0, 0))   # Text for strike
+        win.blit(text, (20, 545))   # Place strike
     # Draw grid and board
-    board.draw(win)
+    board.draw(win)     # Draw window
 
 
-def format_time(secs):
+def format_time(secs):  # Format the time into correct sting format
     sec = secs%60
     minute = secs//60
-    hour = minute//60
-
-    mat = " " + str(minute) + ":" + str(sec)
-    return mat
+    myString = " " + str(minute) + ":" + str(sec)
+    return myString
 
 
 def main():
-    win = pygame.display.set_mode((540,600))
+    global board
+
+    # Window setup:
+    win = pygame.display.set_mode((540,600)) 
     pygame.display.set_caption("Sudoku")
-    board = Grid(9, 9, 540, 540)
+
+    board_grid = Grid(9, 9, 540, 540, board) # draw the board grid with 9 rows and columns with size 540x540 with the board as input
     key = None
-    run = True
-    start = time.time()
-    strikes = 0
+    run = True 
+    start_time = time.time() # Time when game started
+    strikes = 0 # Reset the strikes'
+
     while run:
 
-        play_time = round(time.time() - start)
+        cur_time = round(time.time() - start_time)  # Update timer
 
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT:   # If quit pressed then stop the game
                 run = False
+
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_1:
+                if event.key == pygame.K_1: # If press 1 to 9 then fill in the box
                     key = 1
                 if event.key == pygame.K_2:
                     key = 2
@@ -271,34 +279,41 @@ def main():
                     key = 8
                 if event.key == pygame.K_9:
                     key = 9
-                if event.key == pygame.K_DELETE:
-                    board.clear()
-                    key = None
-                if event.key == pygame.K_RETURN:
-                    i, j = board.selected
-                    if board.cubes[i][j].temp != 0:
-                        if board.place(board.cubes[i][j].temp):
-                            print("Success")
-                        else:
-                            print("Wrong")
-                            strikes += 1
-                        key = None
 
-                        if board.is_finished():
+                if event.key == pygame.K_DELETE:    # If press clear then clear the box 
+                    board_grid.clear()
+                    key = None
+                    
+                if event.key == pygame.K_RETURN:    # If enter key pressed then check if value entered is correct
+                    i, j = board_grid.selected   #Get the position selected
+                    if board_grid.cubes[i][j].temp != 0 and board_grid.cubes[i][j].temp != board_grid.cubes[i][j].value:     # If there is a temp value entered and that is has not already been entered correctly (Can't lose if already won)
+                        if board_grid.place(board_grid.cubes[i][j].temp): # Check if the tmep value can be placed without error and placed perminantly
+                            print("Success")    # Success if the value can be placed
+                        else:   # Else wrong and increase strikes
+                            strikes += 1 
+                            print("Wrong")
+                            if strikes == 10:
+                                root.withdraw() # Need to draw root tkinter window so that messagebox don't open it
+                                messagebox.showerror(title = None, message = "You Lose !")
+                                root.destroy()
+                                run = False  
+                        key = None  
+
+                        if board_grid.is_finished():
                             print("Game over")
                             run = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
-                clicked = board.click(pos)
+                clicked = board_grid.click(pos)
                 if clicked:
-                    board.select(clicked[0], clicked[1])
+                    board_grid.select(clicked[0], clicked[1])
                     key = None
 
-        if board.selected and key != None:
-            board.sketch(key)
+        if board_grid.selected and key != None:  # If selected box and no number has been inserted, then draw number
+            board_grid.sketch(key)
 
-        redraw_window(win, board, play_time, strikes)
+        redraw_window(win, board_grid, cur_time, strikes)    # Update window wth new time and status
         pygame.display.update()
 
 
